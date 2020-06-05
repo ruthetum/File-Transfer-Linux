@@ -4,11 +4,12 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <time.h>
 
-#define BUFFER_SIZE 1460
+#define BUFFER_SIZE 1024
 #define MAX_DIGIT 15
 
-void error_handling(char *msg);
+void error_handling(char *msg); // function for error handling
 
 int main(int argc, char *argv[]) {
   
@@ -41,7 +42,7 @@ int main(int argc, char *argv[]) {
   if (server == -1)
     error_handling("socket() Error");
   
-  // Init
+  // Init (address,port)
   memset(&serv_addr, 0, sizeof(serv_addr));
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -54,6 +55,7 @@ int main(int argc, char *argv[]) {
   // Listen
   if (listen(server, 5) == -1)
     error_handling("listen() Error");
+  
   printf("Server start!\n");
   
   // Accept
@@ -64,30 +66,30 @@ int main(int argc, char *argv[]) {
   else
     printf("Connected Client!\n");
   
-  // Client Message
+  // Read message from the client
   msg_size = read(client, clnt_msg, BUFFER_SIZE);
   printf("Client : %s\n", clnt_msg);
   
-  // Open target
+  // Measure the size of a file
   checkFile = fopen("sample.mp4", "rb");
   if (checkFile == NULL) {
     fputs("File Error", stderr);
     exit(1);
   }
-  
-  // Send target size to client
   fseek(checkFile, 0, SEEK_END);
   file_size = ftell(checkFile);
   
+  // Send the size to the client
   printf("Total File Size : %d\n", file_size);
   sprintf(str_file_size, "%d", file_size);  // integer -> string
   write(client, str_file_size, strlen(str_file_size));
-  printf("Sending File Size to Client!\n");
-  
+  printf("Send File Size to Client!\n");
   fclose(checkFile);
   
+  // Measure working time
+  clock_t start = clock();
+  // Send the file to the client
   readFile = fopen("sample.mp4", "rb");
-  // Send target data to client
   while(!feof(readFile)) {
     recv_size = fread(buff, sizeof(char), BUFFER_SIZE, readFile);
     cur_size += recv_size;
@@ -97,12 +99,16 @@ int main(int argc, char *argv[]) {
     if (index % 100 == 0)
       printf("Progressing : %d / %d\n", cur_size, file_size);
   }
+  clock_t end = clock();
   
   // Close
   fclose(readFile);
   close(client);
   close(server);
+  
+  printf("\n");
   printf("Successfully Send! : %d / %d\n", cur_size, file_size);
+  printf("Working Time : %lf sec\n", (double)(end - start)/CLOCKS_PER_SEC);
   
   return 0;
 }
